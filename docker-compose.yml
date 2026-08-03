@@ -1,0 +1,55 @@
+version: "3.9"
+
+services:
+  vault:
+    image: postgres:16
+    container_name: openex-vault
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: openex
+      POSTGRES_PASSWORD: openex_dev_password
+      POSTGRES_DB: openex
+    ports:
+      - "5432:5432"
+    volumes:
+      - openex_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openex -d openex"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: openex-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  core-reactor:
+    build:
+      context: ./core-reactor
+    container_name: openex-core-reactor
+    restart: unless-stopped
+    depends_on:
+      vault:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://vault:5432/openex
+      SPRING_DATASOURCE_USERNAME: openex
+      SPRING_DATASOURCE_PASSWORD: openex_dev_password
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      OPENEX_JWT_SECRET: ${OPENEX_JWT_SECRET:-dev-only-change-me-this-must-be-at-least-32-bytes-long}
+    ports:
+      - "8080:8080"
+
+volumes:
+  openex_pgdata:

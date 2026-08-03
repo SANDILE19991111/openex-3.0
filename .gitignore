@@ -1,0 +1,8 @@
+core-reactor/build/
+core-reactor/.gradle/
+core-reactor/bin/
+*.class
+.idea/
+*.iml
+out/
+*.json

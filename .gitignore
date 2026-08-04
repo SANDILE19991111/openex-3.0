@@ -5,4 +5,4 @@ core-reactor/bin/
 .idea/
 *.iml
 out/
-*.json
+core-reactor/*.json

@@ -1,5 +1,6 @@
 package com.openex.core.matching
 
+import com.openex.core.websocket.OrderBookBroadcaster
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Positive
@@ -54,7 +55,8 @@ data class OrderResponse(
 class OrderController(
     private val matchingEngine: MatchingEngine,
     private val orderRepository: OrderRepository,
-    private val orderIdempotencyKeyRepository: OrderIdempotencyKeyRepository
+    private val orderIdempotencyKeyRepository: OrderIdempotencyKeyRepository,
+    private val orderBookBroadcaster: OrderBookBroadcaster
 ) {
 
     @PostMapping
@@ -89,6 +91,10 @@ class OrderController(
 
         orderIdempotencyKeyRepository.save(OrderIdempotencyKey(idempotencyKey, result.order.id))
 
+        // Push the updated order book + any trades to every subscribed client in real time.
+        orderBookBroadcaster.broadcast(matchingEngine.snapshotFor(req.tradingPair))
+        orderBookBroadcaster.broadcastTrades(req.tradingPair, result.trades)
+
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(toResponse(result.order, result.trades.size))
     }
@@ -102,6 +108,7 @@ class OrderController(
     @DeleteMapping("/{id}")
     fun cancelOrder(@PathVariable id: UUID): ResponseEntity<OrderResponse> {
         val order = matchingEngine.cancel(id) ?: return ResponseEntity.notFound().build()
+        orderBookBroadcaster.broadcast(matchingEngine.snapshotFor(order.tradingPair))
         return ResponseEntity.ok(toResponse(order, tradesExecuted = 0))
     }
 

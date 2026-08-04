@@ -131,3 +131,15 @@ export function getOrderBook(tradingPair: string): Promise<OrderBookSnapshot> {
     headers: authHeaders()
   }).then(handle<OrderBookSnapshot>)
 }
+
+export interface MarketSummary {
+  tradingPair: string
+  displayName: string
+  lastPrice: number
+  bestBid: number | null
+  bestAsk: number | null
+}
+
+export function getMarkets(): Promise<MarketSummary[]> {
+  return fetch(`${BASE}/markets`).then(handle<MarketSummary[]>)
+}

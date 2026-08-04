@@ -1,12 +1,13 @@
 import { FormEvent, useEffect, useState } from 'react'
+import { useParams } from 'react-router-dom'
 import { OrderBookSnapshot, OrderResponse, OrderSide, OrderType, getOrderBook, placeOrder } from '../api/client'
 import { subscribeOrderBook } from '../api/ws'
 import { useAuthStore } from '../store/authStore'
 import OrderBookComponent from '../components/OrderBook'
 
-const TRADING_PAIR = 'BTC-USD'
-
 export default function TradingPage() {
+  const { pair } = useParams<{ pair: string }>()
+  const tradingPair = pair ?? 'BTC-USD'
   const userId = useAuthStore((s) => s.userId)!
   const [book, setBook] = useState<OrderBookSnapshot | null>(null)
   const [recentOrders, setRecentOrders] = useState<OrderResponse[]>([])
@@ -18,12 +19,14 @@ export default function TradingPage() {
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
-  // Initial snapshot via REST, then live updates via WebSocket.
+  // Initial snapshot via REST, then live updates via WebSocket. Re-subscribes
+  // whenever the trading pair changes (e.g. navigating from the Markets page).
   useEffect(() => {
-    getOrderBook(TRADING_PAIR).then(setBook).catch(() => {})
-    const unsubscribe = subscribeOrderBook(TRADING_PAIR, setBook)
+    setBook(null)
+    getOrderBook(tradingPair).then(setBook).catch(() => {})
+    const unsubscribe = subscribeOrderBook(tradingPair, setBook)
     return unsubscribe
-  }, [])
+  }, [tradingPair])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -32,7 +35,7 @@ export default function TradingPage() {
     try {
       const result = await placeOrder({
         userId,
-        tradingPair: TRADING_PAIR,
+        tradingPair,
         side,
         orderType,
         price: orderType === 'LIMIT' ? Number(price) : undefined,
@@ -51,7 +54,7 @@ export default function TradingPage() {
   return (
     <div className="page">
       <div className="panel">
-        <h2>{TRADING_PAIR} Order Book</h2>
+        <h2>{tradingPair} Order Book</h2>
         <OrderBookComponent book={book} />
       </div>
 
@@ -99,7 +102,7 @@ export default function TradingPage() {
             </label>
           </div>
           <button type="submit" className={side === 'BUY' ? 'buy' : 'sell'} disabled={submitting}>
-            {submitting ? 'Placing…' : side === 'BUY' ? 'Buy' : 'Sell'} {TRADING_PAIR}
+            {submitting ? 'Placing…' : side === 'BUY' ? 'Buy' : 'Sell'} {tradingPair}
           </button>
           {error && <div className="error">{error}</div>}
         </form>

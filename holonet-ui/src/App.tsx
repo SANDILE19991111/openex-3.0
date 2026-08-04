@@ -3,6 +3,7 @@ import { useAuthStore } from './store/authStore'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import TradingPage from './pages/TradingPage'
+import MarketsPage from './pages/MarketsPage'
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const token = useAuthStore((s) => s.token)
@@ -18,8 +19,9 @@ export default function App() {
       <nav className="navbar">
         <span className="brand">OpenEx 3.0 · Holonet Terminal</span>
         <div className="navbar-links">
+          <NavLink to="/markets">Markets</NavLink>
           <NavLink to="/dashboard">Dashboard</NavLink>
-          <NavLink to="/trading">Trading</NavLink>
+          <NavLink to="/trading/BTC-USD">Trading</NavLink>
           {username ? (
             <>
               <span style={{ color: 'var(--muted)' }}>{username}</span>
@@ -33,6 +35,7 @@ export default function App() {
 
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/markets" element={<MarketsPage />} />
         <Route
           path="/dashboard"
           element={
@@ -42,14 +45,14 @@ export default function App() {
           }
         />
         <Route
-          path="/trading"
+          path="/trading/:pair"
           element={
             <RequireAuth>
               <TradingPage />
             </RequireAuth>
           }
         />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/markets" replace />} />
       </Routes>
     </>
   )

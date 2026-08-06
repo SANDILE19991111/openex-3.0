@@ -6,3 +6,5 @@ core-reactor/bin/
 *.iml
 out/
 core-reactor/*.json
+astromech/venv/
+astromech/__pycache__/

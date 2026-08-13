@@ -3,6 +3,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 from market_data import get_market_data, list_supported_pairs
+from chat import run_chat
 
 app = Flask(__name__)
 CORS(app)  # dev-friendly; the frontend runs on a different port during local dev
@@ -26,6 +27,29 @@ def market_data(trading_pair: str):
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 404
     return jsonify(data)
+
+
+@app.post("/api/chat")
+def chat():
+    """
+    Day 12: plain chat, no wallet/tool access yet.
+    Expects JSON body: { "message": "..." }
+    """
+    body = request.get_json(silent=True) or {}
+    message = body.get("message")
+
+    if not message:
+        return jsonify({"error": "message is required"}), 400
+
+    try:
+        reply = run_chat(message)
+    except Exception as exc:  # Ollama not running, model missing, etc.
+        return jsonify({
+            "error": "The AI assistant is unavailable right now.",
+            "detail": str(exc)
+        }), 503
+
+    return jsonify({"reply": reply})
 
 
 if __name__ == "__main__":

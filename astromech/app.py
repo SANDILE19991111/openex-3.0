@@ -32,17 +32,27 @@ def market_data(trading_pair: str):
 @app.post("/api/chat")
 def chat():
     """
-    Day 12: plain chat, no wallet/tool access yet.
-    Expects JSON body: { "message": "..." }
+    Day 13: the agent can now call GET /api/wallets on the Kotlin backend
+    using the caller's own JWT, so it can answer balance questions for real.
+
+    Expects:
+      Authorization: Bearer <jwt>   (forwarded to the Kotlin API by the wallet tool)
+      JSON body: { "message": "...", "userId": "..." }
     """
     body = request.get_json(silent=True) or {}
     message = body.get("message")
+    user_id = body.get("userId")
 
-    if not message:
-        return jsonify({"error": "message is required"}), 400
+    if not message or not user_id:
+        return jsonify({"error": "message and userId are required"}), 400
+
+    auth_header = request.headers.get("Authorization", "")
+    jwt_token = auth_header.removeprefix("Bearer ").strip()
+    if not jwt_token:
+        return jsonify({"error": "missing Authorization bearer token"}), 401
 
     try:
-        reply = run_chat(message)
+        reply = run_chat(message, user_id, jwt_token)
     except Exception as exc:  # Ollama not running, model missing, etc.
         return jsonify({
             "error": "The AI assistant is unavailable right now.",

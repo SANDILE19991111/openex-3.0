@@ -2,7 +2,7 @@ import os
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
-from market_data import get_market_data, list_supported_pairs
+from market_data import get_market_data, get_candles, list_supported_pairs
 from chat import run_chat
 
 app = Flask(__name__)
@@ -24,6 +24,17 @@ def market_data(trading_pair: str):
     points = request.args.get("points", default=200, type=int)
     try:
         data = get_market_data(trading_pair, points)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 404
+    return jsonify(data)
+
+
+@app.get("/api/market-data/<trading_pair>/candles")
+def market_candles(trading_pair: str):
+    points = request.args.get("points", default=200, type=int)
+    candle_size = request.args.get("candleSize", default=5, type=int)
+    try:
+        data = get_candles(trading_pair, points, candle_size)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 404
     return jsonify(data)

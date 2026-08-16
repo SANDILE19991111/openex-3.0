@@ -13,6 +13,11 @@ export default defineConfig({
       '/ws': {
         target: 'http://localhost:8080',
         ws: true
+      },
+      '/droid': {
+        target: 'http://localhost:5001',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/droid/, '')
       }
     }
   }

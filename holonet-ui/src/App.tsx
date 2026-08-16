@@ -4,6 +4,7 @@ import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import TradingPage from './pages/TradingPage'
 import MarketsPage from './pages/MarketsPage'
+import ChatWidget from './components/ChatWidget'
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const token = useAuthStore((s) => s.token)
@@ -54,6 +55,9 @@ export default function App() {
         />
         <Route path="*" element={<Navigate to="/markets" replace />} />
       </Routes>
+
+      {/* Floating chat widget - renders on every page, but only shows itself once logged in */}
+      <ChatWidget />
     </>
   )
 }

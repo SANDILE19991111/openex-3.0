@@ -1,6 +1,7 @@
 import { useAuthStore } from '../store/authStore'
 
 const BASE = '/api'
+const DROID_BASE = '/droid/api'
 
 function authHeaders(): Record<string, string> {
   const token = useAuthStore.getState().token
@@ -13,6 +14,7 @@ async function handle<T>(res: Response): Promise<T> {
     try {
       const body = await res.json()
       if (body?.message) message = body.message
+      else if (body?.error) message = body.error
     } catch {
       // no JSON body, keep default message
     }
@@ -142,4 +144,54 @@ export interface MarketSummary {
 
 export function getMarkets(): Promise<MarketSummary[]> {
   return fetch(`${BASE}/markets`).then(handle<MarketSummary[]>)
+}
+
+// --- Day 14: Python "Astromech" microservice — market data + chat ---
+
+export interface MarketTick {
+  timestamp: number
+  price: number
+  smaShort: number
+  smaLong: number
+}
+
+export interface MarketDataResponse {
+  tradingPair: string
+  currentPrice: number
+  smaShort: number
+  smaLong: number
+  ticks: MarketTick[]
+}
+
+export function getMarketData(tradingPair: string, points = 200): Promise<MarketDataResponse> {
+  return fetch(`${DROID_BASE}/market-data/${tradingPair}?points=${points}`).then(
+    handle<MarketDataResponse>
+  )
+}
+
+export interface Candle {
+  timestamp: number
+  open: number
+  high: number
+  low: number
+  close: number
+}
+
+export interface CandlesResponse {
+  tradingPair: string
+  candles: Candle[]
+}
+
+export function getCandles(tradingPair: string, points = 200, candleSize = 5): Promise<CandlesResponse> {
+  return fetch(
+    `${DROID_BASE}/market-data/${tradingPair}/candles?points=${points}&candleSize=${candleSize}`
+  ).then(handle<CandlesResponse>)
+}
+
+export function sendChatMessage(message: string, userId: string): Promise<{ reply: string }> {
+  return fetch(`${DROID_BASE}/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ message, userId })
+  }).then(handle<{ reply: string }>)
 }

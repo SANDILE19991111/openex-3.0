@@ -4,6 +4,10 @@ import { OrderBookSnapshot, OrderResponse, OrderSide, OrderType, getOrderBook, p
 import { subscribeOrderBook } from '../api/ws'
 import { useAuthStore } from '../store/authStore'
 import OrderBookComponent from '../components/OrderBook'
+import MarketChart from '../components/MarketChart'
+import CandlestickChart from '../components/CandlestickChart'
+
+type ChartView = 'line' | 'candles'
 
 export default function TradingPage() {
   const { pair } = useParams<{ pair: string }>()
@@ -11,6 +15,7 @@ export default function TradingPage() {
   const userId = useAuthStore((s) => s.userId)!
   const [book, setBook] = useState<OrderBookSnapshot | null>(null)
   const [recentOrders, setRecentOrders] = useState<OrderResponse[]>([])
+  const [chartView, setChartView] = useState<ChartView>('line')
 
   const [side, setSide] = useState<OrderSide>('BUY')
   const [orderType, setOrderType] = useState<OrderType>('LIMIT')
@@ -53,6 +58,33 @@ export default function TradingPage() {
 
   return (
     <div className="page">
+      <div className="panel">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2 style={{ margin: 0 }}>{tradingPair} Price Chart</h2>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button
+              className={chartView === 'line' ? 'primary' : ''}
+              style={chartView !== 'line' ? { background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--muted)' } : undefined}
+              onClick={() => setChartView('line')}
+            >
+              Line
+            </button>
+            <button
+              className={chartView === 'candles' ? 'primary' : ''}
+              style={chartView !== 'candles' ? { background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--muted)' } : undefined}
+              onClick={() => setChartView('candles')}
+            >
+              Candles
+            </button>
+          </div>
+        </div>
+        {chartView === 'line' ? (
+          <MarketChart tradingPair={tradingPair} />
+        ) : (
+          <CandlestickChart tradingPair={tradingPair} />
+        )}
+      </div>
+
       <div className="panel">
         <h2>{tradingPair} Order Book</h2>
         <OrderBookComponent book={book} />

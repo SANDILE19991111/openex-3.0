@@ -81,8 +81,10 @@ export function deposit(accountId: string, amount: number, reference: string): P
 }
 
 export type OrderSide = 'BUY' | 'SELL'
-export type OrderType = 'LIMIT' | 'MARKET'
-export type OrderStatus = 'OPEN' | 'PARTIALLY_FILLED' | 'FILLED' | 'CANCELLED'
+// STOP covers both "buy stop" and "sell stop / stop-loss" - which one it is
+// depends on `side`, not a separate value.
+export type OrderType = 'LIMIT' | 'MARKET' | 'STOP'
+export type OrderStatus = 'OPEN' | 'PARTIALLY_FILLED' | 'FILLED' | 'CANCELLED' | 'TRIGGERED'
 
 export interface OrderResponse {
   id: string
@@ -91,6 +93,7 @@ export interface OrderResponse {
   side: OrderSide
   orderType: OrderType
   price: number | null
+  stopPrice: number | null
   quantity: number
   filledQuantity: number
   status: OrderStatus
@@ -103,6 +106,7 @@ export function placeOrder(params: {
   side: OrderSide
   orderType: OrderType
   price?: number
+  stopPrice?: number
   quantity: number
 }): Promise<OrderResponse> {
   const idempotencyKey = crypto.randomUUID()
@@ -114,6 +118,20 @@ export function placeOrder(params: {
       ...authHeaders()
     },
     body: JSON.stringify(params)
+  }).then(handle<OrderResponse>)
+}
+
+/** Lists the current user's own orders for one pair - used to draw price lines on the chart. */
+export function getMyOrders(userId: string, tradingPair: string): Promise<OrderResponse[]> {
+  return fetch(`${BASE}/orders?userId=${userId}&tradingPair=${tradingPair}`, {
+    headers: authHeaders()
+  }).then(handle<OrderResponse[]>)
+}
+
+export function cancelOrder(orderId: string): Promise<OrderResponse> {
+  return fetch(`${BASE}/orders/${orderId}`, {
+    method: 'DELETE',
+    headers: authHeaders()
   }).then(handle<OrderResponse>)
 }
 
@@ -146,7 +164,7 @@ export function getMarkets(): Promise<MarketSummary[]> {
   return fetch(`${BASE}/markets`).then(handle<MarketSummary[]>)
 }
 
-// --- Day 14: Python "Astromech" microservice — market data + chat ---
+// --- Python "Astromech" microservice: market data, candles, chat ---
 
 export interface MarketTick {
   timestamp: number
@@ -177,14 +195,29 @@ export interface Candle {
   close: number
 }
 
+// Matches the backend's TIMEFRAMES keys exactly (market_data.py).
+export type Timeframe = '1m' | '2h' | '3h' | '4h' | '1d' | '1mo' | '1y'
+
+export const TIMEFRAME_OPTIONS: { value: Timeframe; label: string }[] = [
+  { value: '1m', label: '1m' },
+  { value: '2h', label: '2H' },
+  { value: '3h', label: '3H' },
+  { value: '4h', label: '4H' },
+  { value: '1d', label: 'Daily' },
+  { value: '1mo', label: 'Monthly' },
+  { value: '1y', label: 'Yearly' }
+]
+
 export interface CandlesResponse {
   tradingPair: string
+  timeframe: Timeframe
+  currentPrice: number
   candles: Candle[]
 }
 
-export function getCandles(tradingPair: string, points = 200, candleSize = 5): Promise<CandlesResponse> {
+export function getCandles(tradingPair: string, timeframe: Timeframe, points = 200): Promise<CandlesResponse> {
   return fetch(
-    `${DROID_BASE}/market-data/${tradingPair}/candles?points=${points}&candleSize=${candleSize}`
+    `${DROID_BASE}/market-data/${tradingPair}/candles?timeframe=${timeframe}&points=${points}`
   ).then(handle<CandlesResponse>)
 }
 

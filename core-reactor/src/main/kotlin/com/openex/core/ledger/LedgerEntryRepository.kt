@@ -8,8 +8,6 @@ import java.util.UUID
 
 interface LedgerEntryRepository : JpaRepository<LedgerEntry, UUID> {
 
-    // Balance is always derived: CREDITs add, DEBITs subtract. Never stored
-    // as a mutable column — this is what makes the ledger tamper-evident.
     @Query(
         """
         SELECT COALESCE(SUM(
@@ -23,4 +21,6 @@ interface LedgerEntryRepository : JpaRepository<LedgerEntry, UUID> {
     fun sumAmountByAccountId(@Param("accountId") accountId: UUID): BigDecimal
 
     fun findAllByTransactionId(transactionId: UUID): List<LedgerEntry>
+
+    fun findAllByAccountIdOrderByCreatedAtDesc(accountId: UUID): List<LedgerEntry>
 }

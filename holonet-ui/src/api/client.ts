@@ -1,7 +1,10 @@
 import { useAuthStore } from '../store/authStore'
 
-const BASE = '/api'
-const DROID_BASE = '/droid/api'
+// In local dev, these are relative paths proxied by Vite (see vite.config.ts).
+// In production (Render), there's no dev proxy, so these are set to the real
+// deployed service URLs via build-time env vars (VITE_API_BASE, VITE_DROID_BASE).
+const BASE = import.meta.env.VITE_API_BASE || '/api'
+const DROID_BASE = import.meta.env.VITE_DROID_BASE || '/droid/api'
 
 function authHeaders(): Record<string, string> {
   const token = useAuthStore.getState().token

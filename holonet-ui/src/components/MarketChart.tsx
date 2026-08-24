@@ -7,13 +7,22 @@ import {
   Tooltip,
   Legend
 } from 'chart.js'
+import annotationPlugin from 'chartjs-plugin-annotation'
 import { Line } from 'react-chartjs-2'
 import { useLiveMarketData } from '../api/useLiveMarketData'
+import { buildOrderAnnotations } from '../api/orderAnnotations'
+import { OrderResponse } from '../api/client'
 import PriceTicker from './PriceTicker'
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend)
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, annotationPlugin)
 
-export default function MarketChart({ tradingPair }: { tradingPair: string }) {
+export default function MarketChart({
+  tradingPair,
+  myOrders = []
+}: {
+  tradingPair: string
+  myOrders?: OrderResponse[]
+}) {
   const { data, error, direction } = useLiveMarketData(tradingPair)
 
   if (error) {
@@ -70,7 +79,8 @@ export default function MarketChart({ tradingPair }: { tradingPair: string }) {
       y: { ticks: { color: '#8892a6' }, grid: { color: '#232838' } }
     },
     plugins: {
-      legend: { labels: { color: '#8892a6' } }
+      legend: { labels: { color: '#8892a6' } },
+      annotation: { annotations: buildOrderAnnotations(myOrders) }
     }
   }
 

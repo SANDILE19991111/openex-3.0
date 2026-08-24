@@ -8,11 +8,13 @@ import {
   type ChartOptions
 } from 'chart.js'
 import { CandlestickController, CandlestickElement } from 'chartjs-chart-financial'
+import annotationPlugin from 'chartjs-plugin-annotation'
 import 'chartjs-adapter-date-fns'
 import { Chart } from 'react-chartjs-2'
-import { CandlesResponse, TIMEFRAME_OPTIONS, Timeframe, getCandles } from '../api/client'
+import { CandlesResponse, OrderResponse, TIMEFRAME_OPTIONS, Timeframe, getCandles } from '../api/client'
+import { buildOrderAnnotations } from '../api/orderAnnotations'
 
-ChartJS.register(LinearScale, TimeScale, Tooltip, Legend, CandlestickController, CandlestickElement)
+ChartJS.register(LinearScale, TimeScale, Tooltip, Legend, CandlestickController, CandlestickElement, annotationPlugin)
 
 // '1m' is genuinely live, so poll it often. Longer timeframes are mostly
 // synthetic/static aside from the final candle, so polling them is cheaper
@@ -38,7 +40,13 @@ const TIME_UNIT: Record<Timeframe, 'minute' | 'hour' | 'day' | 'month' | 'year'>
   '1y': 'year'
 }
 
-export default function CandlestickChart({ tradingPair }: { tradingPair: string }) {
+export default function CandlestickChart({
+  tradingPair,
+  myOrders = []
+}: {
+  tradingPair: string
+  myOrders?: OrderResponse[]
+}) {
   const [timeframe, setTimeframe] = useState<Timeframe>('1m')
   const [data, setData] = useState<CandlesResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -147,7 +155,8 @@ export default function CandlestickChart({ tradingPair }: { tradingPair: string 
       }
     },
     plugins: {
-      legend: { labels: { color: '#8892a6' } }
+      legend: { labels: { color: '#8892a6' } },
+      annotation: { annotations: buildOrderAnnotations(myOrders) }
     }
   }
 

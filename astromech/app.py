@@ -2,11 +2,16 @@ import os
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
-from market_data import get_market_data, get_candles, list_supported_pairs
+from market_data import get_market_data, get_candles, list_supported_pairs, list_timeframes
 from chat import run_chat
 
 app = Flask(__name__)
-CORS(app)  # dev-friendly; the frontend runs on a different port during local dev
+
+# Comma-separated list of allowed frontend origins. In production, set
+# FRONTEND_ORIGINS to the deployed frontend's real URL. Defaults to the
+# local Vite dev server so nothing extra needs configuring for local dev.
+allowed_origins = os.environ.get("FRONTEND_ORIGINS", "http://localhost:5173").split(",")
+CORS(app, origins=[o.strip() for o in allowed_origins])
 
 
 @app.get("/health")
@@ -17,6 +22,11 @@ def health():
 @app.get("/api/market-data/pairs")
 def market_pairs():
     return jsonify({"pairs": list_supported_pairs()})
+
+
+@app.get("/api/market-data/timeframes")
+def market_timeframes():
+    return jsonify({"timeframes": list_timeframes()})
 
 
 @app.get("/api/market-data/<trading_pair>")
@@ -31,10 +41,10 @@ def market_data(trading_pair: str):
 
 @app.get("/api/market-data/<trading_pair>/candles")
 def market_candles(trading_pair: str):
+    timeframe = request.args.get("timeframe", default="1m", type=str)
     points = request.args.get("points", default=200, type=int)
-    candle_size = request.args.get("candleSize", default=5, type=int)
     try:
-        data = get_candles(trading_pair, points, candle_size)
+        data = get_candles(trading_pair, timeframe, points)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 404
     return jsonify(data)
@@ -42,14 +52,6 @@ def market_candles(trading_pair: str):
 
 @app.post("/api/chat")
 def chat():
-    """
-    Day 13: the agent can now call GET /api/wallets on the Kotlin backend
-    using the caller's own JWT, so it can answer balance questions for real.
-
-    Expects:
-      Authorization: Bearer <jwt>   (forwarded to the Kotlin API by the wallet tool)
-      JSON body: { "message": "...", "userId": "..." }
-    """
     body = request.get_json(silent=True) or {}
     message = body.get("message")
     user_id = body.get("userId")
@@ -64,7 +66,7 @@ def chat():
 
     try:
         reply = run_chat(message, user_id, jwt_token)
-    except Exception as exc:  # Ollama not running, model missing, etc.
+    except Exception as exc:
         return jsonify({
             "error": "The AI assistant is unavailable right now.",
             "detail": str(exc)
@@ -75,4 +77,5 @@ def chat():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5001))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    debug_mode = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
+    app.run(host="0.0.0.0", port=port, debug=debug_mode)

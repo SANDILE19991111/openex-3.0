@@ -34,6 +34,7 @@ data class CreateOrderRequest(
     @field:NotNull val side: OrderSide,
     @field:NotNull val orderType: OrderType,
     val price: BigDecimal? = null,
+    val stopPrice: BigDecimal? = null,
     @field:NotNull @field:Positive val quantity: BigDecimal
 )
 
@@ -44,6 +45,7 @@ data class OrderResponse(
     val side: OrderSide,
     val orderType: OrderType,
     val price: BigDecimal?,
+    val stopPrice: BigDecimal?,
     val quantity: BigDecimal,
     val filledQuantity: BigDecimal,
     val status: OrderStatus,
@@ -56,16 +58,16 @@ class OrderController(
     private val matchingEngine: MatchingEngine,
     private val orderRepository: OrderRepository,
     private val orderIdempotencyKeyRepository: OrderIdempotencyKeyRepository,
-    private val orderBookBroadcaster: OrderBookBroadcaster
+    private val orderBookBroadcaster: OrderBookBroadcaster,
+    private val tradeSettlementService: TradeSettlementService,
+    private val orderBalanceValidator: OrderBalanceValidator
 ) {
 
     @PostMapping
     fun createOrder(
         @RequestHeader("Idempotency-Key") idempotencyKey: String,
         @RequestBody req: CreateOrderRequest
-    ): ResponseEntity<OrderResponse> {
-        // Replay of a known key returns the SAME order, not a new one —
-        // this is the guard against a frantic trader mashing "Buy" 47 times.
+    ): ResponseEntity<Any> {
         val existingKey = orderIdempotencyKeyRepository.findById(idempotencyKey)
         if (existingKey.isPresent) {
             val order = orderRepository.findById(existingKey.get().orderId).orElse(null)
@@ -77,6 +79,22 @@ class OrderController(
         if (req.orderType == OrderType.LIMIT && req.price == null) {
             return ResponseEntity.badRequest().build()
         }
+        if (req.orderType == OrderType.STOP && req.stopPrice == null) {
+            return ResponseEntity.badRequest().build()
+        }
+
+        try {
+            orderBalanceValidator.validate(
+                userId = req.userId,
+                tradingPair = req.tradingPair,
+                side = req.side,
+                orderType = req.orderType,
+                price = req.price,
+                quantity = req.quantity
+            )
+        } catch (ex: InsufficientBalanceException) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(mapOf("error" to ex.message))
+        }
 
         val order = Order(
             userId = req.userId,
@@ -84,6 +102,7 @@ class OrderController(
             side = req.side,
             orderType = req.orderType,
             price = req.price,
+            stopPrice = req.stopPrice,
             quantity = req.quantity
         )
 
@@ -91,7 +110,14 @@ class OrderController(
 
         orderIdempotencyKeyRepository.save(OrderIdempotencyKey(idempotencyKey, result.order.id))
 
-        // Push the updated order book + any trades to every subscribed client in real time.
+        // Move real money between the buyer's and seller's wallets for
+        // every trade this submission generated. Each trade in result.trades
+        // is fresh from this exact match — no risk of double-settling a
+        // trade that was already settled on an earlier submission.
+        result.trades.forEach { tradeSettlementService.settle(it) }
+
+        // Push the updated order book + any trades (including any cascaded
+        // stop-order fills) to every subscribed client in real time.
         orderBookBroadcaster.broadcast(matchingEngine.snapshotFor(req.tradingPair))
         orderBookBroadcaster.broadcastTrades(req.tradingPair, result.trades)
 
@@ -103,6 +129,21 @@ class OrderController(
     fun getOrder(@PathVariable id: UUID): ResponseEntity<OrderResponse> {
         val order = orderRepository.findById(id).orElse(null) ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(toResponse(order, tradesExecuted = 0))
+    }
+
+    /**
+     * Lists a user's orders for one trading pair - used by the frontend to
+     * draw horizontal price lines on the chart for the user's own resting
+     * bids/asks and pending stop orders.
+     */
+    @GetMapping
+    fun listOrders(
+        @RequestParam userId: UUID,
+        @RequestParam tradingPair: String
+    ): ResponseEntity<List<OrderResponse>> {
+        val orders = orderRepository.findAllByUserIdAndTradingPair(userId, tradingPair)
+            .map { toResponse(it, tradesExecuted = 0) }
+        return ResponseEntity.ok(orders)
     }
 
     @DeleteMapping("/{id}")
@@ -123,6 +164,7 @@ class OrderController(
         side = order.side,
         orderType = order.orderType,
         price = order.price,
+        stopPrice = order.stopPrice,
         quantity = order.quantity,
         filledQuantity = order.filledQuantity,
         status = order.status,

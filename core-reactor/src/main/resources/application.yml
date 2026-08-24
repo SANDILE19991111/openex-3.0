@@ -12,13 +12,19 @@ spring:
     locations: classpath:db/migration
 
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 openex:
   jwt:
-    # Dev-only secret. Override via OPENEX_JWT_SECRET env var for anything real.
+    # Dev-only fallback. In production, OPENEX_JWT_SECRET MUST be set to a
+    # real random secret (Render's "Generate" button on env vars works well)
+    # — never deploy with this default value.
     secret: ${OPENEX_JWT_SECRET:dev-only-change-me-this-must-be-at-least-32-bytes-long}
     expiration-minutes: 60
+  cors:
+    # Comma-separated allowed frontend origins. Set via Render env var
+    # FRONTEND_ORIGINS to the deployed frontend's real URL in production.
+    allowed-origins: ${FRONTEND_ORIGINS:http://localhost:5173}
 
 logging:
   level:

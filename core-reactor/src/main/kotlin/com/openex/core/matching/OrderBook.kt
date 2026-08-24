@@ -3,20 +3,9 @@ package com.openex.core.matching
 import java.math.BigDecimal
 import java.util.TreeMap
 
-/**
- * In-memory order book for a single trading pair. Price-time priority:
- * best price first, and within the same price level, earliest order first
- * (FIFO). This is intentionally in-memory per the brief — persistence of the
- * resulting order/trade state still happens via Postgres through the
- * repositories; this class only holds what's currently *restable* (open or
- * partially filled LIMIT orders).
- */
 class OrderBook(val tradingPair: String) {
 
-    // Highest price first for buys (bids).
     val buyLevels = TreeMap<BigDecimal, ArrayDeque<Order>>(Comparator.reverseOrder())
-
-    // Lowest price first for sells (asks).
     val sellLevels = TreeMap<BigDecimal, ArrayDeque<Order>>(Comparator.naturalOrder())
 
     fun bestBid(): BigDecimal? = if (buyLevels.isEmpty()) null else buyLevels.firstKey()
@@ -36,7 +25,6 @@ class OrderBook(val tradingPair: String) {
         if (queue.isEmpty()) levels.remove(price)
     }
 
-    /** The opposite-side book (best price first) that an incoming order would match against. */
     fun oppositeLevels(side: OrderSide): TreeMap<BigDecimal, ArrayDeque<Order>> =
         if (side == OrderSide.BUY) sellLevels else buyLevels
 

@@ -23,7 +23,7 @@ class MatchingEngineTest {
     fun setUp() {
         orderRepository = mock(OrderRepository::class.java)
         tradeRepository = mock(TradeRepository::class.java)
-        whenever(orderRepository.save(any())).thenAnswer { it.arguments[0] }
+        whenever(orderRepository.save(any<Order>())).thenAnswer { it.arguments[0] }
         whenever(tradeRepository.saveAll(any<List<Trade>>())).thenAnswer { it.arguments[0] }
         engine = MatchingEngine(orderRepository, tradeRepository)
     }
@@ -73,10 +73,8 @@ class MatchingEngineTest {
 
     @Test
     fun `incoming order larger than resting liquidity partially fills and rests remainder`() {
-        // Resting sell for only 3 units.
         engine.submit(limitOrder(OrderSide.SELL, "100.00", "3", seller))
 
-        // Incoming buy wants 10 units -> only 3 available.
         val buyResult = engine.submit(limitOrder(OrderSide.BUY, "100.00", "10", buyer))
 
         assertEquals(OrderStatus.PARTIALLY_FILLED, buyResult.order.status)
@@ -84,7 +82,6 @@ class MatchingEngineTest {
         assertEquals(0, BigDecimal("3").compareTo(buyResult.order.filledQuantity))
         assertEquals(0, BigDecimal("7").compareTo(buyResult.order.remainingQuantity))
 
-        // The remainder should now be resting on the book as an open bid.
         val snapshot = engine.snapshotFor(pair)
         assertTrue(snapshot.bids.any { it.quantity.compareTo(BigDecimal("7")) == 0 })
     }
@@ -103,7 +100,6 @@ class MatchingEngineTest {
 
     @Test
     fun `price-time priority - best price fills first`() {
-        // Two resting sells at different prices; cheaper should fill first.
         engine.submit(limitOrder(OrderSide.SELL, "101.00", "5", seller))
         engine.submit(limitOrder(OrderSide.SELL, "99.00", "5", UUID.randomUUID()))
 

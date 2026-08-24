@@ -20,8 +20,6 @@ class LedgerEntry(
     @Column(name = "account_id", nullable = false)
     val accountId: UUID,
 
-    // Always positive. Whether it increases or decreases the balance is
-    // determined entirely by `direction`, never by the sign of amount.
     @Column(nullable = false, precision = 18, scale = 8)
     val amount: BigDecimal,
 

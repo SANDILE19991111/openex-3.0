@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { OrderBookSnapshot, OrderResponse, OrderSide, OrderType, getOrderBook, placeOrder } from '../api/client'
+import { OrderBookSnapshot, OrderResponse, OrderSide, OrderType, getMyOrders, getOrderBook, placeOrder } from '../api/client'
 import { subscribeOrderBook } from '../api/ws'
 import { useAuthStore } from '../store/authStore'
 import OrderBookComponent from '../components/OrderBook'
@@ -15,6 +15,7 @@ export default function TradingPage() {
   const userId = useAuthStore((s) => s.userId)!
   const [book, setBook] = useState<OrderBookSnapshot | null>(null)
   const [recentOrders, setRecentOrders] = useState<OrderResponse[]>([])
+  const [myOrders, setMyOrders] = useState<OrderResponse[]>([])
   const [chartView, setChartView] = useState<ChartView>('line')
 
   const [side, setSide] = useState<OrderSide>('BUY')
@@ -33,6 +34,26 @@ export default function TradingPage() {
     return unsubscribe
   }, [tradingPair])
 
+  // The user's own open orders — drawn as price lines on both charts.
+  // Refetched on pair change, right after placing an order, and on a short
+  // poll so a stop order that just triggered (or got filled by someone
+  // else's order) disappears from the chart reasonably promptly.
+  async function refreshMyOrders() {
+    try {
+      const orders = await getMyOrders(userId, tradingPair)
+      setMyOrders(orders)
+    } catch {
+      // non-fatal — chart just renders without order lines
+    }
+  }
+
+  useEffect(() => {
+    refreshMyOrders()
+    const interval = window.setInterval(refreshMyOrders, 5000)
+    return () => window.clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tradingPair, userId])
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
@@ -49,6 +70,7 @@ export default function TradingPage() {
       setRecentOrders((prev) => [result, ...prev].slice(0, 10))
       setQuantity('')
       // Order book will update itself via the WebSocket broadcast — no manual refresh needed.
+      refreshMyOrders()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Order failed')
     } finally {
@@ -79,9 +101,9 @@ export default function TradingPage() {
           </div>
         </div>
         {chartView === 'line' ? (
-          <MarketChart tradingPair={tradingPair} />
+          <MarketChart tradingPair={tradingPair} myOrders={myOrders} />
         ) : (
-          <CandlestickChart tradingPair={tradingPair} />
+          <CandlestickChart tradingPair={tradingPair} myOrders={myOrders} />
         )}
       </div>
 

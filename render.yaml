@@ -1,0 +1,97 @@
+# Render Blueprint — deploys the entire OpenEx 3.0 stack from one file.
+# Docs: https://render.com/docs/blueprint-spec
+#
+# IMPORTANT — this requires one manual step after the FIRST deploy:
+# Render can't know each service's public URL until it exists, so the
+# cross-service URLs below (FRONTEND_ORIGINS, VITE_API_BASE, etc.) need to
+# be filled in with the real *.onrender.com URLs Render assigns, then each
+# dependent service needs a manual redeploy. See DEPLOYMENT.md for the
+# exact steps — this file gets you ~90% of the way there automatically.
+
+databases:
+  - name: openex-db
+    databaseName: openex
+    user: openex
+    plan: free
+
+services:
+  # --- Kotlin backend (matching engine, ledger, JWT auth, WebSockets) ---
+  - type: web
+    name: openex-core-reactor
+    runtime: docker
+    dockerContext: ./core-reactor
+    dockerfilePath: ./core-reactor/Dockerfile
+    plan: starter
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SPRING_DATASOURCE_URL
+        fromDatabase:
+          name: openex-db
+          property: connectionString
+      - key: SPRING_DATASOURCE_USERNAME
+        fromDatabase:
+          name: openex-db
+          property: user
+      - key: SPRING_DATASOURCE_PASSWORD
+        fromDatabase:
+          name: openex-db
+          property: password
+      - key: OPENEX_JWT_SECRET
+        generateValue: true
+      # Fill in after first deploy with the real frontend URL, e.g.
+      # https://openex-frontend.onrender.com
+      - key: FRONTEND_ORIGINS
+        value: http://localhost:5173
+
+  # --- Python microservice (market data + AI chat) ---
+  - type: web
+    name: openex-astromech
+    runtime: docker
+    dockerContext: ./astromech
+    dockerfilePath: ./astromech/Dockerfile
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      # Fill in after first deploy with the real backend URL.
+      - key: KOTLIN_API_BASE
+        value: http://localhost:8080
+      # Internal Render network hostname — services on the same account can
+      # reach each other by service name on Render's private network.
+      - key: OLLAMA_BASE_URL
+        value: http://openex-ollama:11434
+      - key: OLLAMA_MODEL
+        value: llama3.2:1b
+      # Fill in after first deploy with the real frontend URL.
+      - key: FRONTEND_ORIGINS
+        value: http://localhost:5173
+
+  # --- Ollama (local LLM, internal-only — not exposed to the public internet) ---
+  - type: pserv
+    name: openex-ollama
+    runtime: docker
+    dockerContext: ./ollama
+    dockerfilePath: ./ollama/Dockerfile
+    plan: standard
+    envVars:
+      - key: OLLAMA_MODEL
+        value: llama3.2:1b
+
+  # --- React frontend ---
+  - type: web
+    name: openex-frontend
+    runtime: static
+    buildCommand: cd holonet-ui && npm install && npm run build
+    staticPublishPath: ./holonet-ui/dist
+    envVars:
+      # Fill in after the backend + astromech services exist, with their
+      # real URLs, e.g. https://openex-core-reactor.onrender.com
+      - key: VITE_API_BASE
+        value: http://localhost:8080/api
+      - key: VITE_WS_BASE
+        value: http://localhost:8080/ws
+      - key: VITE_DROID_BASE
+        value: http://localhost:5001/api
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

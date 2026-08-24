@@ -2,13 +2,18 @@ import { Client, IMessage } from '@stomp/stompjs'
 import SockJS from 'sockjs-client'
 import type { OrderBookSnapshot } from '../api/client'
 
+// Local dev: relative '/ws', proxied by Vite to localhost:8080.
+// Production: absolute URL to the deployed Kotlin backend, e.g.
+// https://openex-core-reactor.onrender.com/ws
+const WS_BASE = import.meta.env.VITE_WS_BASE || '/ws'
+
 let client: Client | null = null
 
 function getClient(): Client {
   if (client) return client
 
   client = new Client({
-    webSocketFactory: () => new SockJS('/ws') as unknown as WebSocket,
+    webSocketFactory: () => new SockJS(WS_BASE) as unknown as WebSocket,
     reconnectDelay: 3000,
     debug: () => {} // silence verbose STOMP frame logs
   })

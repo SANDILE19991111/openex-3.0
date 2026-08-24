@@ -19,7 +19,8 @@
     "react-chartjs-2": "^5.2.0",
     "chartjs-chart-financial": "^0.2.1",
     "chartjs-adapter-date-fns": "^3.0.0",
-    "date-fns": "^3.6.0"
+    "date-fns": "^3.6.0",
+    "chartjs-plugin-annotation": "^3.0.1"
   },
   "devDependencies": {
     "@types/react": "^18.3.3",

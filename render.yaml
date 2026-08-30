@@ -1,12 +1,9 @@
-# Render Blueprint — deploys the entire OpenEx 3.0 stack from one file.
-# Docs: https://render.com/docs/blueprint-spec
-#
-# IMPORTANT — this requires one manual step after the FIRST deploy:
-# Render can't know each service's public URL until it exists, so the
-# cross-service URLs below (FRONTEND_ORIGINS, VITE_API_BASE, etc.) need to
-# be filled in with the real *.onrender.com URLs Render assigns, then each
-# dependent service needs a manual redeploy. See DEPLOYMENT.md for the
-# exact steps — this file gets you ~90% of the way there automatically.
+# Render Blueprint - deploys 4 services now. Ollama is deliberately left
+# out of this pass (it's the slowest/most expensive/least stable piece) -
+# the chat feature will show "AI assistant unavailable" via the existing
+# error handling in app.py, without affecting anything else. Add an
+# `openex-ollama` pserv back in later and update OLLAMA_BASE_URL once the
+# chat feature itself is working reliably.
 
 databases:
   - name: openex-db
@@ -15,7 +12,6 @@ databases:
     plan: free
 
 services:
-  # --- Kotlin backend (matching engine, ledger, JWT auth, WebSockets) ---
   - type: web
     name: openex-core-reactor
     runtime: docker
@@ -38,12 +34,10 @@ services:
           property: password
       - key: OPENEX_JWT_SECRET
         generateValue: true
-      # Fill in after first deploy with the real frontend URL, e.g.
-      # https://openex-frontend.onrender.com
+      # Fill in after first deploy with the real frontend URL.
       - key: FRONTEND_ORIGINS
         value: http://localhost:5173
 
-  # --- Python microservice (market data + AI chat) ---
   - type: web
     name: openex-astromech
     runtime: docker
@@ -55,28 +49,15 @@ services:
       # Fill in after first deploy with the real backend URL.
       - key: KOTLIN_API_BASE
         value: http://localhost:8080
-      # Internal Render network hostname — services on the same account can
-      # reach each other by service name on Render's private network.
+      # No Ollama deployed yet - chat calls will fail and return the
+      # existing "AI assistant unavailable" 503 response, gracefully.
       - key: OLLAMA_BASE_URL
-        value: http://openex-ollama:11434
+        value: http://localhost:11434
       - key: OLLAMA_MODEL
         value: llama3.2:1b
-      # Fill in after first deploy with the real frontend URL.
       - key: FRONTEND_ORIGINS
         value: http://localhost:5173
 
-  # --- Ollama (local LLM, internal-only — not exposed to the public internet) ---
-  - type: pserv
-    name: openex-ollama
-    runtime: docker
-    dockerContext: ./ollama
-    dockerfilePath: ./ollama/Dockerfile
-    plan: standard
-    envVars:
-      - key: OLLAMA_MODEL
-        value: llama3.2:1b
-
-  # --- React frontend ---
   - type: web
     name: openex-frontend
     runtime: static

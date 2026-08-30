@@ -132,18 +132,22 @@ class OrderController(
     }
 
     /**
-     * Lists a user's orders for one trading pair - used by the frontend to
-     * draw horizontal price lines on the chart for the user's own resting
-     * bids/asks and pending stop orders.
+     * Lists a user's orders. Pass `tradingPair` to scope to one pair (used
+     * by the chart to draw the user's own resting bid/ask/stop lines).
+     * Omit it to get the user's full order history across every pair
+     * they've traded — newest first — for a proper order history view.
      */
     @GetMapping
     fun listOrders(
         @RequestParam userId: UUID,
-        @RequestParam tradingPair: String
+        @RequestParam(required = false) tradingPair: String?
     ): ResponseEntity<List<OrderResponse>> {
-        val orders = orderRepository.findAllByUserIdAndTradingPair(userId, tradingPair)
-            .map { toResponse(it, tradesExecuted = 0) }
-        return ResponseEntity.ok(orders)
+        val orders = if (tradingPair != null) {
+            orderRepository.findAllByUserIdAndTradingPair(userId, tradingPair)
+        } else {
+            orderRepository.findAllByUserIdOrderByCreatedAtDesc(userId)
+        }
+        return ResponseEntity.ok(orders.map { toResponse(it, tradesExecuted = 0) })
     }
 
     @DeleteMapping("/{id}")

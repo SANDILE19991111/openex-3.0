@@ -6,5 +6,6 @@ import java.util.UUID
 interface OrderRepository : JpaRepository<Order, UUID> {
     fun findAllByTradingPairAndStatusIn(tradingPair: String, statuses: List<OrderStatus>): List<Order>
     fun findAllByUserId(userId: UUID): List<Order>
+    fun findAllByUserIdOrderByCreatedAtDesc(userId: UUID): List<Order>
     fun findAllByUserIdAndTradingPair(userId: UUID, tradingPair: String): List<Order>
 }

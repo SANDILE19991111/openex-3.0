@@ -4,6 +4,7 @@ import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import TradingPage from './pages/TradingPage'
 import MarketsPage from './pages/MarketsPage'
+import OrderHistoryPage from './pages/OrderHistoryPage'
 import ChatWidget from './components/ChatWidget'
 
 function RequireAuth({ children }: { children: JSX.Element }) {
@@ -23,6 +24,7 @@ export default function App() {
           <NavLink to="/markets">Markets</NavLink>
           <NavLink to="/dashboard">Dashboard</NavLink>
           <NavLink to="/trading/BTC-USD">Trading</NavLink>
+          <NavLink to="/orders">Orders</NavLink>
           {username ? (
             <>
               <span style={{ color: 'var(--muted)' }}>{username}</span>
@@ -50,6 +52,14 @@ export default function App() {
           element={
             <RequireAuth>
               <TradingPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/orders"
+          element={
+            <RequireAuth>
+              <OrderHistoryPage />
             </RequireAuth>
           }
         />

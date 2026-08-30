@@ -125,8 +125,11 @@ export function placeOrder(params: {
 }
 
 /** Lists the current user's own orders for one pair - used to draw price lines on the chart. */
-export function getMyOrders(userId: string, tradingPair: string): Promise<OrderResponse[]> {
-  return fetch(`${BASE}/orders?userId=${userId}&tradingPair=${tradingPair}`, {
+export function getMyOrders(userId: string, tradingPair?: string): Promise<OrderResponse[]> {
+  const query = tradingPair
+    ? `userId=${userId}&tradingPair=${tradingPair}`
+    : `userId=${userId}`
+  return fetch(`${BASE}/orders?${query}`, {
     headers: authHeaders()
   }).then(handle<OrderResponse[]>)
 }

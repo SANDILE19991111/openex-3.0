@@ -7,4 +7,4 @@ core-reactor/bin/
 out/
 core-reactor/*.json
 astromech/venv/
-astromech/__pycache__/
+astromech/__pycache__/astromech/chat_debug.json
